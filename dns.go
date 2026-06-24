@@ -115,6 +115,27 @@ func init() {
 	})
 }
 
+// Build constructs a Service for the named driver without booting the kernel.
+// The togo CLI's `proxy` runner uses it to resolve a provider standalone; the
+// stock drivers (cloudflare/npm/caddy/kong) are env-configured, so a nil kernel
+// is fine. Pass a real kernel only if a driver needs kernel services.
+func Build(name string, k *togo.Kernel) (*Service, error) {
+	if name == "" {
+		name = "log"
+	}
+	regMu.RLock()
+	f, ok := drivers[name]
+	regMu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("dns: unknown driver %q (install its plugin, e.g. togo install togo-framework/dns-%s)", name, name)
+	}
+	p, err := f(k)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{provider: p, driver: name}, nil
+}
+
 // Service is the dns runtime stored on the kernel (k.Get("dns")).
 type Service struct {
 	provider Provider
